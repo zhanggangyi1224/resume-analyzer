@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resume Analyzer Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-a"></div>
+    <div class="bg-orb orb-b"></div>
+
+    <main class="app-shell">
+      <header class="hero">
+        <p class="tag">AI 赋能招聘效率</p>
+        <h1>智能简历分析系统</h1>
+        <p class="subtitle">上传 PDF 简历，自动解析关键信息并与岗位 JD 进行匹配评分。</p>
+      </header>
+
+      <section class="panel form-panel">
+        <div class="field-row">
+          <label for="apiBase">Backend API Base</label>
+          <input id="apiBase" type="text" placeholder="http://127.0.0.1:8000/api/v1" />
+        </div>
+
+        <div class="field-row">
+          <label for="resumeFile">简历 PDF</label>
+          <input id="resumeFile" class="visually-hidden-file" type="file" accept="application/pdf,.pdf" />
+          <label for="resumeFile" id="filePicker" class="file-picker">
+            <span class="file-picker-title">点击或拖拽上传 PDF 简历</span>
+            <span class="file-picker-subtitle">支持单个 .pdf 文件，建议小于 10MB</span>
+            <span class="file-picker-name" id="fileName">未选择文件</span>
+          </label>
+        </div>
+
+        <div class="field-row">
+          <label for="jobDescription">岗位需求描述（JD）</label>
+          <textarea id="jobDescription" rows="6" placeholder="例如：招聘 Python 后端工程师，要求 3 年以上经验，熟悉 FastAPI、Redis、Docker，本科及以上..."></textarea>
+        </div>
+
+        <div class="button-row">
+          <button id="parseBtn" type="button">仅解析</button>
+          <button id="extractBtn" type="button">仅提取</button>
+          <button id="analyzeBtn" type="button" class="primary">完整分析</button>
+        </div>
+        <p id="statusText" class="status idle">等待操作</p>
+      </section>
+
+      <section class="panel result-panel">
+        <h2>分析结果</h2>
+        <div id="overview" class="overview"></div>
+
+        <div id="resultGrid" class="result-grid">
+          <article id="parseCard" class="hidden">
+            <h3>解析结果</h3>
+            <div id="parseView" class="parse-grid">暂无</div>
+          </article>
+          <article id="extractCard">
+            <h3>关键信息提取</h3>
+            <div id="extractionView" class="extract-grid">暂无</div>
+          </article>
+          <article id="matchCard">
+            <h3>匹配结果</h3>
+            <div id="matchView" class="match-view">
+              <p class="empty-hint">当前响应未包含 match 字段</p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
