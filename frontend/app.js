@@ -1,3 +1,5 @@
+import { createFallbackMockPayload } from "./mock-data.js";
+
 const apiBaseInput = document.getElementById("apiBase");
 const resumeFileInput = document.getElementById("resumeFile");
 const filePicker = document.getElementById("filePicker");
@@ -143,11 +145,11 @@ async function runWithPdf(endpoint, includeJobDescription, mode) {
 
   const formData = new FormData();
   formData.append("file", file);
+  const jdText = jobDescriptionInput.value.trim();
 
   if (includeJobDescription) {
-    const jd = jobDescriptionInput.value.trim();
-    if (jd) {
-      formData.append("job_description", jd);
+    if (jdText) {
+      formData.append("job_description", jdText);
     }
   }
 
@@ -163,12 +165,21 @@ async function runWithPdf(endpoint, includeJobDescription, mode) {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       const detail = payload?.detail || `HTTP ${response.status}`;
-      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+      const message = typeof detail === "string" ? detail : JSON.stringify(detail);
+      if (shouldUseDemoFallback(response.status, message)) {
+        renderDemoFallback(mode, file, jdText, message);
+        return;
+      }
+      throw new Error(message);
     }
 
     renderPayload(payload, mode);
     setStatus("success", "分析成功");
   } catch (error) {
+    if (shouldUseDemoFallback(undefined, error?.message || "")) {
+      renderDemoFallback(mode, file, jdText, error?.message || "");
+      return;
+    }
     setStatus("error", `请求失败：${error.message}`);
   } finally {
     setButtons(false);
@@ -189,10 +200,14 @@ function renderPayload(payload, mode) {
   const metrics = [];
   if (payload.resume_id) metrics.push(metric("Resume ID", payload.resume_id));
   if (parsed?.page_count) metrics.push(metric("页数", `${parsed.page_count}`));
-  if (match?.score?.final_score !== undefined) {
-    metrics.push(metric("匹配分", `${match.score.final_score.toFixed(2)}`));
+  const finalScore = toNumber(match?.score?.final_score);
+  if (finalScore !== null) {
+    metrics.push(metric("匹配分", `${finalScore.toFixed(2)}`));
   }
   metrics.push(metric("缓存命中", payload.cached ? "是" : "否"));
+  if (payload.demo) {
+    metrics.push(metric("数据模式", "交互演示"));
+  }
 
   overviewEl.innerHTML = metrics.join("");
   parseView.innerHTML = parsed
@@ -539,6 +554,39 @@ function clampRatio(value) {
 
 function clampPercent(value) {
   return Math.min(Math.max(Number(value) || 0, 0), 100);
+}
+
+function shouldUseDemoFallback(statusCode, message) {
+  const status = Number(statusCode);
+  if (status >= 500) {
+    return true;
+  }
+
+  const normalizedMessage = String(message || "").toLowerCase();
+  const networkHints = [
+    "failed to fetch",
+    "networkerror",
+    "network request failed",
+    "load failed",
+    "timed out",
+    "timeout",
+    "connection refused",
+    "err_connection_refused",
+    "econnrefused",
+  ];
+
+  return networkHints.some((hint) => normalizedMessage.includes(hint));
+}
+
+function renderDemoFallback(mode, file, jobDescription, reason) {
+  const payload = createFallbackMockPayload({
+    mode,
+    fileName: file?.name,
+    jobDescription,
+    reason,
+  });
+  renderPayload(payload, mode);
+  setStatus("demo", "后端暂不可用，已切换 Mock 演示数据（非真实解析结果）");
 }
 
 function applyResultLayout(mode, data) {
