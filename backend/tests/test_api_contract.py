@@ -1,3 +1,5 @@
+"""Contract tests for analyze endpoint response schema stability."""
+
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -9,6 +11,8 @@ from app.services.cache import CacheService
 
 
 def _fake_match_result() -> MatchResult:
+    """Build deterministic match fixture for endpoint contract assertions."""
+
     return MatchResult(
         score=MatchScore(
             final_score=86.0,
@@ -36,6 +40,8 @@ def _fake_match_result() -> MatchResult:
 
 
 def test_analyze_response_contract(monkeypatch) -> None:
+    """Ensure `/resumes/analyze` returns expected top-level and nested fields."""
+
     monkeypatch.setattr(routes, "cache", CacheService(redis_url=None, default_ttl_seconds=3600))
 
     def fake_parse_pdf_bytes(_: bytes) -> ParseResult:
@@ -113,6 +119,8 @@ def test_analyze_response_contract(monkeypatch) -> None:
 
 
 def test_analyze_without_jd_returns_match_null(monkeypatch) -> None:
+    """Ensure match payload is null when analysis runs without JD input."""
+
     monkeypatch.setattr(routes, "cache", CacheService(redis_url=None, default_ttl_seconds=3600))
 
     def fake_parse_pdf_bytes(_: bytes) -> ParseResult:

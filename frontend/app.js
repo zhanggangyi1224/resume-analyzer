@@ -1,3 +1,4 @@
+// Frontend controller for upload, API requests, and result rendering.
 import { createFallbackMockPayload } from "./mock-data.js";
 
 const apiBaseInput = document.getElementById("apiBase");
@@ -35,6 +36,7 @@ resumeFileInput.addEventListener("change", onFileSelected);
 enableDragAndDropUpload();
 
 function onFileSelected() {
+  // Keep file selection logic in one place so click and drag-drop share validation path.
   const file = resumeFileInput.files?.[0];
   applySelectedFile(file);
 }
@@ -112,6 +114,7 @@ function applySelectedFile(file) {
 }
 
 function normalizeApiBase(base) {
+  // Normalize once to avoid double slashes in request URL concatenation.
   return String(base || "").trim().replace(/\/$/, "");
 }
 
@@ -193,6 +196,7 @@ function formatFileSize(bytes) {
 }
 
 function renderPayload(payload, mode) {
+  // Backend may return parse/extraction/match partially depending on endpoint mode.
   const parsed = payload.parsed;
   const extraction = payload.extraction;
   const match = payload.match;
@@ -471,6 +475,7 @@ function compactLongField(value, maxItems, maxLen) {
 }
 
 function normalizeProjectItems(rawItems) {
+  // Keep only concise project-like lines to avoid rendering full paragraphs in the list.
   if (!Array.isArray(rawItems) || !rawItems.length) {
     return [];
   }
@@ -501,6 +506,7 @@ function normalizeKeywordList(value, limit) {
 }
 
 function normalizeSentenceList(value, maxItems, maxLen) {
+  // Split noisy long blocks into short readable sentences for UI display.
   const raw = Array.isArray(value) ? value : [value];
   const segments = [];
 
@@ -554,6 +560,12 @@ function hasEffectiveAiScore(score, finalScore, heuristicScore) {
     return false;
   }
 
+  // Backend may return ai_score=0 as a placeholder in some edge paths.
+  // We treat it as "AI disabled" only when:
+  // - ai_score is exactly 0,
+  // - final_score equals heuristic_score,
+  // - and final_score is non-zero (to avoid misclassifying genuine zero-score cases).
+  // This avoids showing misleading "0.0" while still allowing real numeric AI scores.
   if (aiScore === 0 && finalScore !== null && heuristicScore !== null) {
     const sameAsHeuristic = Math.abs(finalScore - heuristicScore) < 0.0001;
     if (sameAsHeuristic && finalScore > 0) {
@@ -578,11 +590,15 @@ function clampPercent(value) {
 
 function shouldUseDemoFallback(statusCode, message) {
   const status = Number(statusCode);
+  // Server-side 5xx indicates backend is temporarily unavailable;
+  // switch to demo payload so reviewers can still validate full UI flow.
   if (status >= 500) {
     return true;
   }
 
   const normalizedMessage = String(message || "").toLowerCase();
+  // Browser/runtime network errors are inconsistent across platforms,
+  // so we use a conservative keyword list to detect unreachable backend states.
   const networkHints = [
     "failed to fetch",
     "networkerror",

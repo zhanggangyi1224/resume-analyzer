@@ -1,3 +1,4 @@
+// Demo payload builder used only when backend is unreachable.
 const MOCK_PROFILES = [
   {
     key: "backend",
@@ -97,6 +98,7 @@ const STOP_WORDS = new Set([
 ]);
 
 export function createFallbackMockPayload({ mode, fileName, jobDescription, reason }) {
+  // Use role-aware mock profile so UI still demonstrates realistic score differences.
   const profile = pickMockProfile(jobDescription);
   const displayName = inferNameFromFileName(fileName) || profile.name;
   const selectedFile = trimValue(fileName || "mock-resume.pdf", 56);
@@ -126,6 +128,7 @@ export function createFallbackMockPayload({ mode, fileName, jobDescription, reas
 }
 
 function pickMockProfile(jobDescription) {
+  // Select the profile with highest JD tag overlap.
   const text = normalizeToken(jobDescription || "");
   if (!text) {
     return MOCK_PROFILES[0];
@@ -149,6 +152,7 @@ function pickMockProfile(jobDescription) {
 }
 
 function buildParsedSection(profile, displayName, fileName, reason) {
+  // Mock parsed block mirrors backend fields so UI rendering path stays identical.
   return {
     page_count: 2,
     raw_text: [
@@ -170,6 +174,7 @@ function buildParsedSection(profile, displayName, fileName, reason) {
 }
 
 function buildExtractionSection(profile, displayName) {
+  // Keep extraction schema identical to backend API contract.
   return {
     contact: {
       name: displayName,
@@ -187,6 +192,7 @@ function buildExtractionSection(profile, displayName) {
 }
 
 function buildMatchSection(profile, jobDescription) {
+  // Reuse same score dimensions as backend for consistent front-end presentation.
   const jdKeywords = extractKeywords(jobDescription);
   const baselineKeywords = profile.skills.slice(0, 6);
   const targetKeywords = jdKeywords.length ? jdKeywords : baselineKeywords;

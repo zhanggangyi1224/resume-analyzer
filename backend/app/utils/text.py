@@ -1,3 +1,5 @@
+"""Text normalization and lightweight NLP helpers for resume/JD processing."""
+
 from __future__ import annotations
 
 import re
@@ -216,6 +218,8 @@ BULLET_CHARS = "•●▪◦■□◆◇・"
 
 
 def normalize_text(text: str) -> str:
+    """Normalize raw PDF text into cleaner line-based content."""
+
     text = text.replace("\u3000", " ").replace("\xa0", " ")
     text = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", text)
     text = text.replace("\r", "\n")
@@ -248,6 +252,8 @@ def normalize_text(text: str) -> str:
 
 
 def split_sections(text: str) -> dict[str, str]:
+    """Split normalized resume text into canonical section buckets."""
+
     if not text.strip():
         return {}
 
@@ -272,6 +278,8 @@ def split_sections(text: str) -> dict[str, str]:
 
 
 def _insert_heading_breaks(text: str) -> str:
+    """Insert line breaks around known CN/EN section headings."""
+
     for heading in sorted(HEADING_PATTERNS, key=len, reverse=True):
         if len(heading) <= 2:
             # Avoid splitting combined headings like "专业技能" into "专业" + "技能".
@@ -296,6 +304,8 @@ def _insert_heading_breaks(text: str) -> str:
 
 
 def _normalize_heading(line: str) -> str | None:
+    """Map raw heading text to canonical section key when possible."""
+
     normalized = line.strip().strip(":：").strip()
     if not normalized:
         return None
@@ -316,6 +326,8 @@ def _normalize_heading(line: str) -> str | None:
 
 
 def _extract_english_tokens(text: str) -> set[str]:
+    """Extract useful English tokens while filtering stopwords/noise."""
+
     tokens = set()
     for token in re.findall(r"[A-Za-z][A-Za-z0-9+#\-.]{1,30}", text.lower()):
         token = token.strip(".")
@@ -330,6 +342,8 @@ def _extract_english_tokens(text: str) -> set[str]:
 
 
 def _extract_chinese_tokens(text: str) -> set[str]:
+    """Extract concise Chinese tokens while filtering generic resume words."""
+
     tokens = set()
     for token in re.findall(r"[\u4e00-\u9fff]{2,8}", text):
         if token in CN_STOPWORDS or token in CN_NOISE_TOKENS:
@@ -347,6 +361,8 @@ def _extract_chinese_tokens(text: str) -> set[str]:
 
 
 def extract_keywords(text: str, limit: int = 30) -> list[str]:
+    """Extract technical and contextual keywords from JD or resume text."""
+
     lowered = text.lower()
     found_skills = {keyword for keyword in TECH_KEYWORDS if _contains_skill_keyword(keyword, text, lowered)}
 
@@ -360,6 +376,8 @@ def extract_keywords(text: str, limit: int = 30) -> list[str]:
 
 
 def _contains_skill_keyword(keyword: str, text: str, lowered: str) -> bool:
+    """Check whether a skill keyword appears as a standalone token."""
+
     if re.search(r"[\u4e00-\u9fff]", keyword):
         return keyword in text
 
@@ -369,6 +387,8 @@ def _contains_skill_keyword(keyword: str, text: str, lowered: str) -> bool:
 
 
 def parse_years_from_text(text: str) -> float | None:
+    """Parse explicit work-year statements from free text."""
+
     patterns = [
         r"(\d+(?:\.\d+)?)\s*\+?\s*年(?:工作)?经验",
         r"工作\s*(\d+(?:\.\d+)?)\s*年",
@@ -385,6 +405,8 @@ def parse_years_from_text(text: str) -> float | None:
 
 
 def parse_required_years(text: str) -> float | None:
+    """Parse required years of experience from JD text."""
+
     patterns = [
         r"(\d+(?:\.\d+)?)\s*\+?\s*年(?:以上)?",
         r"至少\s*(\d+(?:\.\d+)?)\s*年",
@@ -401,6 +423,8 @@ def parse_required_years(text: str) -> float | None:
 
 
 def estimate_years_by_date_ranges(text: str) -> float | None:
+    """Estimate years using explicit date ranges like `2023.06-2024.09`."""
+
     range_pattern = re.compile(
         r"(\d{4})(?:[./年-](\d{1,2}))?\s*[—–-]\s*(至今|现在|present|current|\d{4})(?:[./年-](\d{1,2}))?",
         flags=re.IGNORECASE,
@@ -436,6 +460,8 @@ def estimate_years_by_date_ranges(text: str) -> float | None:
 
 
 def _normalize_month(value: str | None, default: int) -> int:
+    """Parse month string safely and clamp to 1-12."""
+
     if value is None:
         return default
     try:
@@ -446,5 +472,7 @@ def _normalize_month(value: str | None, default: int) -> int:
 
 
 def normalize_score(value: float, scale: float = 100.0) -> float:
+    """Clamp score into range and keep two decimal places."""
+
     value = max(0.0, min(scale, value))
     return round(value, 2)

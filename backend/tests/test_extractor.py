@@ -1,3 +1,5 @@
+"""Unit tests for rule-based extraction behavior."""
+
 import asyncio
 
 from app.services.extractor import ResumeExtractor
@@ -5,6 +7,8 @@ from app.utils.text import normalize_text, split_sections
 
 
 def test_extract_contact_fields_from_inline_resume() -> None:
+    """Contact fields should be extracted from compact single-line resume text."""
+
     raw = (
         "张刚以 邮箱：zhanggangyi1224@gmail.com 手机：15252657633 "
         "地址：浙江省嘉兴市桐乡市复兴名邸佳凯苑8栋1单元2601室 "
@@ -24,6 +28,8 @@ def test_extract_contact_fields_from_inline_resume() -> None:
 
 
 def test_extract_background_summary_and_projects() -> None:
+    """Education summary and project titles should stay concise and relevant."""
+
     raw = (
         "教育背景\n"
         "墨尔本大学 计算与软件系统理学学士 2023-2025\n"
@@ -44,6 +50,8 @@ def test_extract_background_summary_and_projects() -> None:
 
 
 def test_extract_work_years_from_date_ranges_and_infer_job_intention() -> None:
+    """Date ranges should infer work years and role intent from context."""
+
     raw = (
         "专业技能\n"
         "前端：React、TypeScript、CSS3\n"

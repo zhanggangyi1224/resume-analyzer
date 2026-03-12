@@ -1,3 +1,5 @@
+"""Rule-based + AI-assisted resume key information extraction service."""
+
 from __future__ import annotations
 
 import re
@@ -62,10 +64,14 @@ _JOB_INTENT_KEYWORDS = {
 
 
 class ResumeExtractor:
+    """Extract contact/job/background fields from cleaned resume text."""
+
     def __init__(self, ai_client: AIClient | None = None) -> None:
         self.ai_client = ai_client
 
     async def extract(self, cleaned_text: str, sections: dict[str, str]) -> ResumeExtraction:
+        """Run rule extraction, then merge AI result when available."""
+
         rule_based = self._extract_with_rules(cleaned_text, sections)
 
         ai_result: dict[str, Any] | None = None
@@ -81,6 +87,8 @@ class ResumeExtractor:
         return rule_based
 
     def _extract_with_rules(self, text: str, sections: dict[str, str]) -> ResumeExtraction:
+        """Extract structured fields using deterministic regex and heuristics."""
+
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         preview_lines = lines[:16]
 
@@ -146,6 +154,8 @@ class ResumeExtractor:
 
     @staticmethod
     def _extract_name(lines: list[str], text: str) -> str | None:
+        """Resolve candidate name from explicit labels or leading header line."""
+
         explicit = _extract_by_patterns(
             text,
             [
@@ -176,6 +186,8 @@ class ResumeExtractor:
 
     @staticmethod
     def _extract_address(text: str) -> str | None:
+        """Extract concise address string and cut off unrelated trailing sections."""
+
         explicit = _extract_by_patterns(
             text,
             [
@@ -205,6 +217,8 @@ class ResumeExtractor:
 
     @staticmethod
     def _extract_education(text: str, sections: dict[str, str]) -> str | None:
+        """Build concise education summary from degree-bearing lines."""
+
         edu_text = _join_sections(sections, ["教育背景"])
         source_text = edu_text if edu_text else text
         source_lines = _compact_lines(source_text, max_lines=80)
@@ -243,12 +257,20 @@ class ResumeExtractor:
 
     @staticmethod
     def _extract_projects(text: str, sections: dict[str, str]) -> list[str]:
+        """Extract project-title style entries and filter noisy responsibilities."""
+
         project_text = _join_sections(sections, ["项目经历"])
         source = project_text if project_text else text
 
         lines = _compact_lines(source, max_lines=180)
         candidates: list[str] = []
 
+        # Heuristic pass for project title candidates:
+        # 1) remove decorative bullet prefixes,
+        # 2) skip very short fragments,
+        # 3) skip action-only responsibility lines (e.g. "负责/管理/维护..."),
+        # 4) keep lines that look like project names or contain project hints.
+        # Goal: keep concise "project title style" entries rather than long duty paragraphs.
         for line in lines:
             stripped = line.strip("•-·* ")
             if len(stripped) < 6:
@@ -271,6 +293,9 @@ class ResumeExtractor:
         for item in _dedupe_ordered([project for project in candidates if project]):
             normalized = item.strip()
             normalized_lower = normalized.lower()
+            # Drop generic labels such as "机器学习项目/IT项目" to avoid noisy outputs.
+            # Keep explicit known titles even if they are in lines containing generic terms.
+            # This trades a small recall loss for much better precision in UI display.
             if normalized_lower in _PROJECT_GENERIC_TERMS:
                 continue
             if any(term in normalized_lower for term in _PROJECT_GENERIC_TERMS):
@@ -286,11 +311,15 @@ class ResumeExtractor:
 
     @staticmethod
     def _extract_skills(text: str, skills_text: str) -> list[str]:
+        """Extract technical keywords, preferring the dedicated skills section."""
+
         target = skills_text if skills_text else text
         return extract_keywords(target, limit=40)
 
     @staticmethod
     def _infer_job_intention(text: str) -> str | None:
+        """Infer intended role from weighted keyword evidence."""
+
         lowered = text.lower()
         scores: dict[str, int] = {}
         for job, keywords in _JOB_INTENT_KEYWORDS.items():
@@ -319,6 +348,8 @@ class ResumeExtractor:
         rule_based: ResumeExtraction,
         ai_data: dict[str, Any],
     ) -> ResumeExtraction:
+        """Merge AI fields over rule-based output with safety cleaning."""
+
         ai_contact = ai_data.get("contact") if isinstance(ai_data.get("contact"), dict) else {}
 
         merged_contact = ContactInfo(
@@ -360,11 +391,15 @@ class ResumeExtractor:
 
 
 def _join_sections(sections: dict[str, str], keys: list[str]) -> str:
+    """Concatenate existing section values in requested order."""
+
     chunks = [sections[key].strip() for key in keys if key in sections and sections[key].strip()]
     return "\n".join(chunks)
 
 
 def _build_ai_input(cleaned_text: str, sections: dict[str, str]) -> str:
+    """Build bounded AI prompt input with preferred section ordering."""
+
     preferred_order = ["基本信息", "求职信息", "工作经历", "教育背景", "项目经历", "技能"]
     blocks: list[str] = []
 
@@ -385,6 +420,8 @@ def _build_ai_input(cleaned_text: str, sections: dict[str, str]) -> str:
 
 
 def _extract_by_patterns(text: str, patterns: list[str], max_len: int = 120) -> str | None:
+    """Return first regex group match from pattern candidates."""
+
     for pattern in patterns:
         match = re.search(pattern, text, flags=re.IGNORECASE)
         if match:
@@ -393,6 +430,8 @@ def _extract_by_patterns(text: str, patterns: list[str], max_len: int = 120) -> 
 
 
 def _compact_lines(text: str, max_lines: int = 100) -> list[str]:
+    """Normalize lines and drop separators/noise blocks."""
+
     lines: list[str] = []
     for line in text.splitlines():
         cleaned = re.sub(r"\s+", " ", line).strip()
@@ -407,6 +446,8 @@ def _compact_lines(text: str, max_lines: int = 100) -> list[str]:
 
 
 def _strip_after_markers(value: str, markers: list[str]) -> str:
+    """Trim value once any section marker appears."""
+
     output = value
     for marker in markers:
         output = re.split(re.escape(marker), output, maxsplit=1)[0]
@@ -414,6 +455,8 @@ def _strip_after_markers(value: str, markers: list[str]) -> str:
 
 
 def _trim_field_value(value: Any, max_len: int = 120) -> str | None:
+    """Normalize spacing/punctuation and cap length for display-safe fields."""
+
     if value is None:
         return None
     cleaned = re.sub(r"\s+", " ", str(value)).strip(" ：:-")
@@ -425,6 +468,8 @@ def _trim_field_value(value: Any, max_len: int = 120) -> str | None:
 
 
 def _clean_education_segment(value: str) -> str | None:
+    """Clean education line by removing date/course tail noise."""
+
     segment = _trim_field_value(value, max_len=140)
     if not segment:
         return None
@@ -438,6 +483,8 @@ def _clean_education_segment(value: str) -> str | None:
 
 
 def _extract_project_title_from_line(line: str) -> str | None:
+    """Extract likely project title from one resume line."""
+
     cleaned = re.sub(r"\s+", " ", line).strip(" •-·*")
     if not cleaned:
         return None
@@ -482,6 +529,8 @@ def _extract_project_title_from_line(line: str) -> str | None:
 
 
 def _extract_project_titles_from_text(text: str) -> list[str]:
+    """Extract candidate project titles from full text using regex groups."""
+
     candidates: list[str] = []
 
     before_date_matches = re.findall(
@@ -517,6 +566,8 @@ def _extract_project_titles_from_text(text: str) -> list[str]:
 
 
 def _is_valid_project_title(value: str) -> bool:
+    """Validate whether a candidate string looks like a project title."""
+
     title = value.strip()
     if len(title) < 4 or len(title) > 80:
         return False
@@ -535,6 +586,8 @@ def _is_valid_project_title(value: str) -> bool:
 
 
 def _normalize_project_candidate(value: str) -> str:
+    """Normalize noisy project candidate into concise title text."""
+
     candidate = _trim_field_value(value, max_len=120) or ""
     candidate = candidate.strip(" ：:-")
     if not candidate:
@@ -570,6 +623,8 @@ def _normalize_project_candidate(value: str) -> str:
 
 
 def _dedupe_project_titles(values: list[str]) -> list[str]:
+    """Deduplicate project titles while preferring more specific variants."""
+
     deduped: list[str] = []
     for item in values:
         normalized = item.strip()
@@ -596,6 +651,8 @@ def _dedupe_project_titles(values: list[str]) -> list[str]:
 
 
 def _dedupe_ordered(values: list[str]) -> list[str]:
+    """Case-insensitive ordered deduplication helper."""
+
     seen = set()
     result: list[str] = []
     for item in values:
@@ -608,6 +665,8 @@ def _dedupe_ordered(values: list[str]) -> list[str]:
 
 
 def _looks_like_name(value: str) -> bool:
+    """Heuristic check for plausible CN/EN personal names."""
+
     candidate = value.strip()
     if len(candidate) > 30:
         return False
@@ -621,6 +680,8 @@ def _looks_like_name(value: str) -> bool:
 
 
 def _clean_phone(value: Any) -> str | None:
+    """Extract normalized phone number from arbitrary AI text."""
+
     text = _trim_field_value(value, max_len=30)
     if not text:
         return None
@@ -629,6 +690,8 @@ def _clean_phone(value: Any) -> str | None:
 
 
 def _clean_email(value: Any) -> str | None:
+    """Extract normalized email address from arbitrary AI text."""
+
     text = _trim_field_value(value, max_len=80)
     if not text:
         return None
@@ -637,6 +700,8 @@ def _clean_email(value: Any) -> str | None:
 
 
 def _clean_name(value: Any) -> str | None:
+    """Normalize and validate candidate personal name."""
+
     text = _trim_field_value(value, max_len=30)
     if not text:
         return None
@@ -644,6 +709,8 @@ def _clean_name(value: Any) -> str | None:
 
 
 def _clean_address(value: Any) -> str | None:
+    """Normalize address and drop trailing unrelated section text."""
+
     text = _trim_field_value(value, max_len=80)
     if not text:
         return None
@@ -658,6 +725,8 @@ def _clean_address(value: Any) -> str | None:
 
 
 def _clean_education_field(value: Any) -> str | None:
+    """Normalize AI education output to concise semicolon-joined summary."""
+
     if isinstance(value, list):
         merged = []
         for item in value:
@@ -687,6 +756,8 @@ def _clean_education_field(value: Any) -> str | None:
 
 
 def _clean_job_intention(value: Any, fallback: str | None) -> str | None:
+    """Prefer precise fallback role when AI returns broad combined intentions."""
+
     ai_value = _trim_field_value(value, max_len=40)
     fallback_value = _trim_field_value(fallback, max_len=40)
     if not ai_value:
@@ -704,6 +775,8 @@ def _clean_job_intention(value: Any, fallback: str | None) -> str | None:
 
 
 def _clean_project_list(value: Any, fallback: list[str]) -> list[str]:
+    """Normalize AI project list and fallback to rule-based results when needed."""
+
     candidates: list[str] = []
 
     if isinstance(value, list):
@@ -742,6 +815,8 @@ def _clean_project_list(value: Any, fallback: list[str]) -> list[str]:
 
 
 def _clean_skill_list(value: Any, fallback: list[str]) -> list[str]:
+    """Filter skills to concise technical tokens and remove noise words."""
+
     allowed_short = {"c", "go", "ai", "ml", "ui", "ux"}
     cleaned = _clean_string_list(value, fallback=fallback, max_len=32, max_items=40)
 
@@ -772,6 +847,8 @@ def _clean_string_list(
     max_len: int,
     max_items: int,
 ) -> list[str]:
+    """Normalize list-like AI field with fallback and deduplication."""
+
     if isinstance(value, list):
         cleaned = []
         for item in value:

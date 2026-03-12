@@ -1,3 +1,5 @@
+"""AI provider client wrapper for extraction and match scoring."""
+
 from __future__ import annotations
 
 import asyncio
@@ -11,6 +13,8 @@ from app.core.config import Settings
 
 
 class AIClient:
+    """Unified async client with Gemini/OpenAI fallback and JSON-only output."""
+
     def __init__(self, settings: Settings) -> None:
         self.ai_provider = settings.ai_provider
         self.timeout = settings.ai_timeout_seconds
@@ -27,9 +31,13 @@ class AIClient:
 
     @property
     def enabled(self) -> bool:
+        """Return whether at least one configured provider is currently usable."""
+
         return bool(self._provider_order())
 
     def _provider_order(self) -> list[str]:
+        """Resolve provider order according to `ai_provider` and available API keys."""
+
         if self.ai_provider == "gemini":
             return ["gemini"] if self.gemini_api_key else []
         if self.ai_provider == "openai":
@@ -43,6 +51,8 @@ class AIClient:
         return providers
 
     async def _chat_json(self, system_prompt: str, user_prompt: str) -> dict[str, Any] | None:
+        """Try configured providers sequentially until one returns valid JSON."""
+
         self.last_error = None
         for provider in self._provider_order():
             if provider == "gemini":
@@ -56,6 +66,8 @@ class AIClient:
         return None
 
     async def _chat_json_openai(self, system_prompt: str, user_prompt: str) -> dict[str, Any] | None:
+        """Call OpenAI Chat Completions and parse strict JSON content."""
+
         if not self.openai_api_key:
             return None
 
@@ -98,6 +110,8 @@ class AIClient:
         return parsed
 
     async def _chat_json_gemini(self, system_prompt: str, user_prompt: str) -> dict[str, Any] | None:
+        """Call Gemini `generateContent` with model fallback and retry."""
+
         if not self.gemini_api_key:
             return None
 
@@ -154,6 +168,7 @@ class AIClient:
                     if status in retryable_status and attempt == 0:
                         await asyncio.sleep(0.8)
                         continue
+                    # 400/404 often means model/path mismatch; move to next model candidate.
                     if status in retryable_status or status in {400, 404}:
                         break
                     return None
@@ -176,6 +191,8 @@ class AIClient:
         return None
 
     async def extract_resume(self, text: str) -> dict[str, Any] | None:
+        """Ask AI model to extract structured resume fields using strict schema prompt."""
+
         system_prompt = (
             "You are a resume information extraction model. "
             "Extract contact, job intention and background fields with high precision. "
@@ -212,6 +229,8 @@ class AIClient:
         job_description: str,
         heuristic_score: float,
     ) -> dict[str, Any] | None:
+        """Ask AI model for semantic JD-fit score and explanatory strengths/gaps."""
+
         system_prompt = (
             "You score how well a resume fits a job description. "
             "Return JSON only."
@@ -227,6 +246,8 @@ class AIClient:
 
 
 def _extract_gemini_text(data: dict[str, Any]) -> str:
+    """Collect text parts from Gemini response candidates."""
+
     candidates = data.get("candidates")
     if not isinstance(candidates, list) or not candidates:
         return ""
@@ -245,6 +266,8 @@ def _extract_gemini_text(data: dict[str, Any]) -> str:
 
 
 def _dedupe_preserve_order(items: list[str]) -> list[str]:
+    """Return de-duplicated list while preserving input order."""
+
     seen = set()
     result: list[str] = []
     for item in items:
@@ -257,6 +280,8 @@ def _dedupe_preserve_order(items: list[str]) -> list[str]:
 
 
 def _try_parse_json(raw: str) -> dict[str, Any] | None:
+    """Parse JSON from plain/fenced/model output text."""
+
     if not raw:
         return None
 

@@ -1,3 +1,5 @@
+"""FastAPI application entrypoint for the Resume Analyzer backend."""
+
 from __future__ import annotations
 
 from fastapi import FastAPI
@@ -27,6 +29,8 @@ app.include_router(router, prefix=settings.api_prefix)
 
 @app.get("/")
 async def root() -> dict[str, str]:
+    """Return minimal service metadata for quick health validation."""
+
     return {
         "message": settings.app_name,
         "docs": "/docs",

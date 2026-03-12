@@ -1,3 +1,5 @@
+"""Resume-to-JD matching service with deterministic and AI-assisted scoring."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -33,6 +35,8 @@ ROLE_KEYWORDS = {
 
 
 class JobMatcher:
+    """Compute keyword/experience/education/role fit and final match result."""
+
     def __init__(self, ai_client: AIClient | None = None) -> None:
         self.ai_client = ai_client
 
@@ -42,6 +46,8 @@ class JobMatcher:
         resume_text: str,
         job_description: str,
     ) -> MatchResult:
+        """Return detailed match result for one resume against one JD text."""
+
         job_keywords = extract_keywords(job_description, limit=48)
 
         resume_keyword_source = "\n".join(
@@ -84,6 +90,13 @@ class JobMatcher:
         education_score = normalize_score(education_relevance * 100)
         role_score = normalize_score(role_relevance * 100)
 
+        # Baseline score from deterministic signals.
+        # Weight choice:
+        # - skills (50%): most direct proxy for immediate delivery capability.
+        # - experience (20%): validates seniority against JD expectation.
+        # - education (15%): useful but usually less decisive than hard skills.
+        # - role relevance (15%): keeps role direction aligned (frontend/backend/fullstack/ml).
+        # This score is always available and serves as the fallback when AI is disabled/unreachable.
         heuristic_score = normalize_score(
             0.5 * skill_score
             + 0.2 * experience_score
@@ -113,6 +126,10 @@ class JobMatcher:
                 ai_strengths = _to_string_list(ai_payload.get("strengths"), limit=4)
                 ai_gaps = _to_string_list(ai_payload.get("gaps"), limit=4)
 
+        # Blend AI score only when present.
+        # We keep heuristic as the major component to maintain stability/reproducibility,
+        # and use AI as a calibrated adjustment to capture semantic fit from free-text JD/resume.
+        # If AI has no valid output, we keep final_score identical to heuristic_score.
         final_score = (
             normalize_score(0.65 * heuristic_score + 0.35 * ai_score)
             if ai_score is not None
@@ -172,6 +189,8 @@ class JobMatcher:
 
 
 def _experience_relevance(required: float | None, candidate: float | None) -> float:
+    """Score candidate years against required years."""
+
     if required is None:
         return 0.75
     if candidate is None:
@@ -182,6 +201,8 @@ def _experience_relevance(required: float | None, candidate: float | None) -> fl
 
 
 def _education_relevance(candidate_text: str, jd_text: str) -> float:
+    """Score education relevance by highest degree level comparison."""
+
     required_level = _max_degree_level(jd_text)
     candidate_level = _max_degree_level(candidate_text)
 
@@ -195,11 +216,15 @@ def _education_relevance(candidate_text: str, jd_text: str) -> float:
 
 
 def _max_degree_level(text: str) -> int | None:
+    """Return max mapped degree level found in text."""
+
     levels = [value for key, value in DEGREE_LEVELS.items() if key in text]
     return max(levels) if levels else None
 
 
 def _infer_role(text: str) -> str | None:
+    """Infer role family from keyword hits."""
+
     lowered = text.lower()
     role_scores: dict[str, int] = {}
 
@@ -224,6 +249,8 @@ def _infer_role(text: str) -> str | None:
 
 
 def _role_relevance(job_role: str | None, resume_role: str | None) -> float:
+    """Score semantic relevance between inferred JD role and resume role."""
+
     if job_role is None and resume_role is None:
         return 0.7
     if job_role is None or resume_role is None:
@@ -244,6 +271,8 @@ def _role_relevance(job_role: str | None, resume_role: str | None) -> float:
 
 
 def _to_optional_score(value: Any) -> float | None:
+    """Parse optional numeric score into normalized 0-100 range."""
+
     try:
         if value is None:
             return None
@@ -253,6 +282,8 @@ def _to_optional_score(value: Any) -> float | None:
 
 
 def _to_optional_text(value: Any) -> str | None:
+    """Convert value to non-empty string when possible."""
+
     if value is None:
         return None
     text = str(value).strip()
@@ -260,6 +291,8 @@ def _to_optional_text(value: Any) -> str | None:
 
 
 def _to_string_list(value: Any, limit: int = 4) -> list[str]:
+    """Normalize arbitrary value to deduplicated short string list."""
+
     if not isinstance(value, list):
         return []
     result: list[str] = []
@@ -285,6 +318,8 @@ def _build_strengths(
     required_years: float | None,
     resume_role: str | None,
 ) -> list[str]:
+    """Generate human-readable strengths when AI strengths are unavailable."""
+
     strengths: list[str] = []
 
     if matched_keywords:
@@ -310,6 +345,8 @@ def _build_gaps(
     required_years: float | None,
     role_relevance: float,
 ) -> list[str]:
+    """Generate concise improvement gaps when AI gaps are unavailable."""
+
     gaps: list[str] = []
 
     if missing_keywords:
@@ -337,6 +374,8 @@ def _build_summary(
     candidate_years: float | None,
     ai_reason: str | None,
 ) -> str:
+    """Build one-paragraph summary for frontend display."""
+
     hit_preview = "、".join(matched_keywords[:6]) if matched_keywords else "暂无明显重合关键词"
     miss_preview = "、".join(missing_keywords[:5]) if missing_keywords else "暂无明显短板关键词"
 

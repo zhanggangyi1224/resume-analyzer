@@ -1,3 +1,5 @@
+"""Integration tests for route-level cache reuse behavior."""
+
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -9,6 +11,8 @@ from app.services.cache import CacheService
 
 
 def _fake_match_result() -> MatchResult:
+    """Build deterministic match fixture for cache reuse assertions."""
+
     return MatchResult(
         score=MatchScore(
             final_score=88.0,
@@ -36,6 +40,8 @@ def _fake_match_result() -> MatchResult:
 
 
 def test_analyze_then_match_reuses_match_cache(monkeypatch) -> None:
+    """`analyze` then `match` should reuse cached match payload for same JD."""
+
     monkeypatch.setattr(routes, "cache", CacheService(redis_url=None, default_ttl_seconds=3600))
     calls = {"parse": 0, "extract": 0, "match": 0}
 

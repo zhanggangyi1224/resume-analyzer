@@ -1,9 +1,13 @@
+"""Pydantic schemas for parse, extraction, and matching API contracts."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
 
 class ParseResult(BaseModel):
+    """Normalized parse output from a single resume PDF file."""
+
     page_count: int = Field(..., ge=1)
     raw_text: str
     cleaned_text: str
@@ -11,12 +15,16 @@ class ParseResult(BaseModel):
 
 
 class ParseResponse(BaseModel):
+    """Response payload for the resume parse endpoint."""
+
     resume_id: str
     parsed: ParseResult
     cached: bool = False
 
 
 class ContactInfo(BaseModel):
+    """Candidate basic contact fields extracted from resume text."""
+
     name: str | None = None
     phone: str | None = None
     email: str | None = None
@@ -24,6 +32,8 @@ class ContactInfo(BaseModel):
 
 
 class ResumeExtraction(BaseModel):
+    """Structured extraction result for core resume information."""
+
     contact: ContactInfo = Field(default_factory=ContactInfo)
     job_intention: str | None = None
     expected_salary: str | None = None
@@ -34,20 +44,28 @@ class ResumeExtraction(BaseModel):
 
 
 class ExtractionResponse(BaseModel):
+    """Response payload for key information extraction endpoint."""
+
     resume_id: str
     extraction: ResumeExtraction
     cached: bool = False
 
 
 class KeywordRequest(BaseModel):
+    """Input schema for JD keyword extraction requests."""
+
     job_description: str = Field(..., min_length=3)
 
 
 class KeywordResponse(BaseModel):
+    """Keyword list derived from a job description."""
+
     keywords: list[str] = Field(default_factory=list)
 
 
 class MatchScore(BaseModel):
+    """Detailed scoring breakdown for resume-job matching."""
+
     final_score: float = Field(..., ge=0, le=100)
     heuristic_score: float = Field(..., ge=0, le=100)
     ai_score: float | None = Field(default=None, ge=0, le=100)
@@ -64,6 +82,8 @@ class MatchScore(BaseModel):
 
 
 class MatchResult(BaseModel):
+    """Full match result including scores, keywords, and explanations."""
+
     score: MatchScore
     job_keywords: list[str] = Field(default_factory=list)
     resume_keywords: list[str] = Field(default_factory=list)
@@ -75,12 +95,16 @@ class MatchResult(BaseModel):
 
 
 class MatchResponse(BaseModel):
+    """Response payload for resume-to-job matching endpoint."""
+
     resume_id: str
     match: MatchResult
     cached: bool = False
 
 
 class AnalyzeResponse(BaseModel):
+    """Aggregated response combining parse, extraction, and optional match."""
+
     resume_id: str
     parsed: ParseResult
     extraction: ResumeExtraction

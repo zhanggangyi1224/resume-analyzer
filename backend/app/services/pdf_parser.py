@@ -1,3 +1,5 @@
+"""PDF parsing utilities for multi-page resume text extraction and cleanup."""
+
 from __future__ import annotations
 
 import io
@@ -14,6 +16,8 @@ class PDFParseError(ValueError):
 
 
 def parse_pdf_bytes(pdf_bytes: bytes) -> ParseResult:
+    """Parse PDF bytes into raw/cleaned text and detected sections."""
+
     if not pdf_bytes:
         raise PDFParseError("Empty file content")
 
@@ -59,6 +63,8 @@ def parse_pdf_bytes(pdf_bytes: bytes) -> ParseResult:
 
 
 def _to_lines(text: str) -> list[str]:
+    """Normalize one page text into non-empty compact lines."""
+
     text = text.replace("\r", "\n")
     lines: list[str] = []
     for line in text.split("\n"):
@@ -69,6 +75,8 @@ def _to_lines(text: str) -> list[str]:
 
 
 def _strip_repeated_headers_and_footers(page_lines: list[list[str]]) -> list[list[str]]:
+    """Remove repeated first/last lines across pages as header/footer noise."""
+
     if len(page_lines) < 2:
         return page_lines
 

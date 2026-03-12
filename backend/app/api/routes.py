@@ -1,3 +1,5 @@
+"""REST API routes for resume parsing, extraction, matching, and analysis."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -34,17 +36,23 @@ router = APIRouter()
 
 @router.get("/health")
 async def health_check() -> dict[str, str]:
+    """Expose service liveness metadata for monitoring and smoke tests."""
+
     return {"status": "ok", "service": settings.app_name, "version": settings.app_version}
 
 
 @router.post("/jobs/keywords", response_model=KeywordResponse)
 async def analyze_job_keywords(payload: KeywordRequest) -> KeywordResponse:
+    """Extract normalized keywords from free-text job descriptions."""
+
     keywords = extract_keywords(payload.job_description, limit=40)
     return KeywordResponse(keywords=keywords)
 
 
 @router.post("/resumes/parse", response_model=ParseResponse)
 async def parse_resume(file: UploadFile = File(...)) -> ParseResponse:
+    """Upload one PDF and return cleaned text plus section split result."""
+
     file_bytes, resume_id = await _read_and_validate_pdf(file)
     response, from_cache = await _get_or_parse(file_bytes, resume_id)
     response.cached = from_cache
@@ -53,6 +61,8 @@ async def parse_resume(file: UploadFile = File(...)) -> ParseResponse:
 
 @router.post("/resumes/extract", response_model=ExtractionResponse)
 async def extract_resume(file: UploadFile = File(...)) -> ExtractionResponse:
+    """Upload one PDF and return structured key information extraction."""
+
     file_bytes, resume_id = await _read_and_validate_pdf(file)
     response, from_cache = await _get_or_extract(file_bytes, resume_id)
     response.cached = from_cache
@@ -64,6 +74,8 @@ async def match_resume(
     file: UploadFile = File(...),
     job_description: str = Form(..., min_length=3),
 ) -> MatchResponse:
+    """Upload one PDF + JD text and return detailed matching result."""
+
     file_bytes, resume_id = await _read_and_validate_pdf(file)
     match_result, from_cache = await _get_or_match(
         file_bytes=file_bytes,
@@ -78,8 +90,11 @@ async def analyze_resume(
     file: UploadFile = File(...),
     job_description: str | None = Form(default=None),
 ) -> AnalyzeResponse:
+    """Run end-to-end analysis; include match result only when JD is provided."""
+
     file_bytes, resume_id = await _read_and_validate_pdf(file)
 
+    # Keep a separate cache key per (resume, JD) pair to avoid stale cross-JD scores.
     jd_key = sha256_text(job_description)[:16] if job_description else "no_jd"
     cache_key = f"analyze:{resume_id}:{jd_key}"
 
@@ -113,6 +128,8 @@ async def analyze_resume(
 
 
 async def _get_or_parse(file_bytes: bytes, resume_id: str) -> tuple[ParseResponse, bool]:
+    """Read parse result from cache or parse PDF bytes and cache the result."""
+
     cache_key = f"parse:{resume_id}"
     cached_payload = await cache.get_json(cache_key)
     if cached_payload:
@@ -129,6 +146,8 @@ async def _get_or_parse(file_bytes: bytes, resume_id: str) -> tuple[ParseRespons
 
 
 async def _get_or_extract(file_bytes: bytes, resume_id: str) -> tuple[ExtractionResponse, bool]:
+    """Read extraction result from cache or compute it from parsed resume text."""
+
     cache_key = f"extract:{resume_id}"
     cached_payload = await cache.get_json(cache_key)
     if cached_payload:
@@ -155,6 +174,8 @@ async def _get_or_match(
     parse_response: ParseResponse | None = None,
     extraction_response: ExtractionResponse | None = None,
 ) -> tuple[MatchResult, bool]:
+    """Read match result from cache or compute score for this JD and resume."""
+
     jd_hash = sha256_text(job_description)[:16]
     cache_key = f"match:{resume_id}:{jd_hash}"
 
@@ -182,6 +203,8 @@ async def _get_or_match(
 
 
 async def _read_and_validate_pdf(file: UploadFile) -> tuple[bytes, str]:
+    """Validate upload constraints and return file bytes with deterministic resume id."""
+
     filename = file.filename or ""
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only single PDF file upload is supported")

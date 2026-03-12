@@ -1,3 +1,5 @@
+"""Runtime settings and environment parsing for the backend service."""
+
 from __future__ import annotations
 
 import json
@@ -13,6 +15,8 @@ ENV_FILE = BASE_DIR / ".env"
 
 
 class Settings(BaseSettings):
+    """Application configuration loaded from environment variables and `.env`."""
+
     app_name: str = "AI Resume Analyzer"
     app_version: str = "1.0.0"
     api_prefix: str = "/api/v1"
@@ -42,6 +46,8 @@ class Settings(BaseSettings):
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: str | list[str]) -> list[str]:
+        """Accept JSON array or comma-separated CORS origins from env."""
+
         if isinstance(value, list):
             return value
         raw = value.strip()
@@ -57,6 +63,8 @@ class Settings(BaseSettings):
     @field_validator("ai_provider")
     @classmethod
     def _validate_ai_provider(cls, value: str) -> str:
+        """Restrict provider value to supported options."""
+
         allowed = {"auto", "gemini", "openai"}
         normalized = value.lower().strip()
         if normalized not in allowed:
@@ -66,4 +74,6 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    """Return a singleton settings instance to avoid repeated env parsing."""
+
     return Settings()

@@ -1,3 +1,5 @@
+"""Unit tests for JD matching score logic."""
+
 import asyncio
 
 from app.schemas import ContactInfo, ResumeExtraction
@@ -5,6 +7,8 @@ from app.services.matcher import JobMatcher
 
 
 def test_matcher_high_score_for_relevant_resume() -> None:
+    """Relevant resume should achieve non-trivial final score and keyword hits."""
+
     extraction = ResumeExtraction(
         contact=ContactInfo(name="张三"),
         work_years=5,
