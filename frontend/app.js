@@ -345,6 +345,7 @@ function renderMatchPanel(match) {
   const finalScore = toNumber(score.final_score);
   const heuristicScore = toNumber(score.heuristic_score);
   const aiScore = toNumber(score.ai_score);
+  const aiEnabled = hasEffectiveAiScore(score, finalScore, heuristicScore);
 
   const scoreLevel =
     finalScore === null ? "待分析" : finalScore >= 80 ? "高匹配" : finalScore >= 60 ? "中匹配" : "低匹配";
@@ -401,7 +402,7 @@ function renderMatchPanel(match) {
         </div>
         <div class="match-hero-metrics">
           <div class="metric-chip"><b>规则分</b><span>${heuristicScore === null ? "--" : heuristicScore.toFixed(1)}</span></div>
-          <div class="metric-chip"><b>AI 分</b><span>${aiScore === null ? "未启用" : aiScore.toFixed(1)}</span></div>
+          <div class="metric-chip"><b>AI 分</b><span>${aiEnabled && aiScore !== null ? aiScore.toFixed(1) : "未启用"}</span></div>
           <div class="metric-chip"><b>关键词命中</b><span>${matchedCount}/${totalKeywords}</span></div>
         </div>
       </div>
@@ -540,8 +541,27 @@ function trimValue(value, maxLen) {
 }
 
 function toNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function hasEffectiveAiScore(score, finalScore, heuristicScore) {
+  const aiScore = toNumber(score?.ai_score);
+  if (aiScore === null) {
+    return false;
+  }
+
+  if (aiScore === 0 && finalScore !== null && heuristicScore !== null) {
+    const sameAsHeuristic = Math.abs(finalScore - heuristicScore) < 0.0001;
+    if (sameAsHeuristic && finalScore > 0) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function clampScore(value) {
